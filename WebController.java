@@ -1,7 +1,5 @@
 package in.eightfolds.pyro_safety_app.controller;
 
-//import static org.hamcrest.CoreMatchers.nullValue;
-
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.SQLException;
@@ -11,12 +9,10 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.validation.Valid;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -41,8 +37,7 @@ import in.eightfolds.pyro_safety_app.bean.JobDetailResponse;
 import in.eightfolds.pyro_safety_app.bean.JobResponse;
 import in.eightfolds.pyro_safety_app.bean.VendorSubCategoryResponse;
 import in.eightfolds.pyro_safety_app.bean.ViolationLevel;
-import in.eightfolds.pyro_safety_app.bean.entity.Authorities;
-import in.eightfolds.pyro_safety_app.bean.entity.EmployeeTest;
+import in.eightfolds.pyro_safety_app.bean.entity.Doc;
 import in.eightfolds.pyro_safety_app.bean.entity.Job;
 import in.eightfolds.pyro_safety_app.bean.entity.JobAuditDetail;
 import in.eightfolds.pyro_safety_app.bean.entity.JobDetailFile;
@@ -51,11 +46,10 @@ import in.eightfolds.pyro_safety_app.bean.entity.MetaActivity;
 import in.eightfolds.pyro_safety_app.bean.entity.MetaCircle;
 import in.eightfolds.pyro_safety_app.bean.entity.Operator;
 import in.eightfolds.pyro_safety_app.bean.entity.Site;
-import in.eightfolds.pyro_safety_app.bean.entity.TPVendor;
 import in.eightfolds.pyro_safety_app.bean.entity.User;
 import in.eightfolds.pyro_safety_app.bean.entity.Vendor;
-import in.eightfolds.pyro_safety_app.bean.entity.VendorName;
 import in.eightfolds.pyro_safety_app.service.MainService;
+import in.eightfolds.pyro_safety_app.validator.DocValidator;
 import in.eightfolds.pyro_safety_app.validator.JobValidator;
 import in.eightfolds.pyro_safety_app.validator.SiteValidator;
 import in.eightfolds.pyro_safety_app.validator.UserValidator;
@@ -72,6 +66,8 @@ public class WebController {
 	private UserValidator userValidator;
 	@Autowired
     private SiteValidator siteValidator;
+	@Autowired
+    private DocValidator docValidator;
 	@Autowired
 	private JobValidator jobValidator;
 	
@@ -110,16 +106,12 @@ public class WebController {
 	public String addUser(Model model) throws Exception {
 		User user = new User();
 		List<MetaCircle> circles = mainService.getAllCircles();
-		List<Authorities> authority = mainService.getAllAuthorities();
 		List<Vendor> vendors = mainService.getVendors();
 		List<Operator> customers = mainService.getCustomers("");
-		List<TPVendor> tpvendors = mainService.getTPVendor("");
 		model.addAttribute("user", user);
 		model.addAttribute("circles", circles);
 		model.addAttribute("vendors", vendors);
-		model.addAttribute("tpvendors", tpvendors);
 		model.addAttribute("customers", customers);
-		model.addAttribute("authority", authority);
 		model.addAttribute("mode", "New");
 		model.addAttribute("page", 1);
 		return "user";
@@ -161,7 +153,6 @@ public class WebController {
 		@RequestParam(value = "circleIds", required = false, defaultValue = "") String circleIds,
 		@RequestParam(value = "vendorIds", required = false, defaultValue = "") String vendorIds,
 		@RequestParam(value = "customerIds", required = false, defaultValue = "") String customerIds,
-	
 		final RedirectAttributes redirectAttributes,BindingResult result,Model model) throws Exception {
 		UserInfo userInfo = SecurityUtil.getCurrentUserInfo();
 		User loggedInUser = mainService.getUserByUserId(userInfo.getUserId());
@@ -171,9 +162,6 @@ public class WebController {
 		model.addAttribute("vendorIds", vendorIds);
 		model.addAttribute("customerIds", customerIds);
 		userValidator.validate(user, result);
-	
-		System.out.println("Inside Add users -- audh is"+user.getAuthority());
-		System.out.println("Inside Add users -- tpvendor is"+user.getTpvendors());
 		if (result.hasErrors()) {
 			List<Vendor> vendors = mainService.getVendors();
 			List<Operator> customers = mainService.getCustomers("");
@@ -265,26 +253,6 @@ public class WebController {
 		return "jobs";
 	}
 	
-	
-	@RequestMapping(value = "/employee", method = RequestMethod.GET)
-	public ModelAndView showForm() {
-        return new ModelAndView("EmployeeTest", "employeeTest", new EmployeeTest());
-    }
-
-    @RequestMapping(value = "/addEmployee", method = RequestMethod.POST)
-    public String submit(@Valid @ModelAttribute("employee")EmployeeTest employeeTest, 
-      BindingResult result, ModelMap model) {
-        if (result.hasErrors()) {
-            return "error";
-        }
-        model.addAttribute("name", employeeTest.getName());
-        model.addAttribute("contactNumber", employeeTest.getContactNumber());
-        model.addAttribute("id", employeeTest.getId());
-        return "employeeView";
-    }
-
-			
-	
 	@RequestMapping(value = "/new/job", method = RequestMethod.GET)
 	public String addJob(Model model) throws Exception {
 		Job job = new Job();
@@ -296,10 +264,6 @@ public class WebController {
 		List<Operator> customers = mainService.getUserCustomers(userInfo.getUserId());
 		List<User> engineers = mainService.getEngineers("");
 		List<User> coordinators = mainService.getCoordinators();
-		List<User> technician = mainService.getTechnician();
-		List<TPVendor> tpvendors = mainService.getTPVendor("");
-		String test = "Testing data passing";
-		System.out.println("Total Techinicians"+technician.size());
 		model.addAttribute("job", job);
 		model.addAttribute("activities", activities);
 		model.addAttribute("sites", sites);
@@ -307,12 +271,8 @@ public class WebController {
 		model.addAttribute("customers", customers);
 		model.addAttribute("engineers", engineers);
 		model.addAttribute("coordinators", coordinators);
-		model.addAttribute("technician", technician);
-		model.addAttribute("tpvendors", tpvendors);
-		model.addAttribute("test", test);
 		model.addAttribute("mode", "New");
 		model.addAttribute("page", 1);
-		model.addAttribute("porefno", 1);
 		if(user.getAuthority().equals(MainService.ROLE_COORDINATOR)) {
 			model.addAttribute("coordinatorId", user.getUserId());
 		}
@@ -328,12 +288,6 @@ public class WebController {
 		@RequestParam(value = "search", required = false, defaultValue = "") String search,
 		@RequestParam(value = "startDate", required = false, defaultValue = "") String startDate,
 		@RequestParam(value = "endDate", required = false, defaultValue = "") String endDate,
-		@RequestParam(value = "porefno", required = false, defaultValue = "") String porefno,
-		@RequestParam(value = "pocustprice", required = false, defaultValue = "") String pocustprice,
-		@RequestParam(value = "podate", required = false, defaultValue = "") String podate,
-		@RequestParam(value = "doneby", required = false, defaultValue = "") String doneby,
-		@RequestParam(value = "teamleadid", required = false, defaultValue = "") String teamleadid,
-		@RequestParam(value = "assignedtotech", required = false, defaultValue = "") String assignedtotech,
 		Model model) throws Exception {
 		
 		Job job = mainService.getJobByJobId(jobId);
@@ -363,16 +317,9 @@ public class WebController {
 		model.addAttribute("statusId", statusId);
 		model.addAttribute("startDate", startDate);
 		model.addAttribute("endDate", endDate);
-		model.addAttribute("porefno", porefno);
-		model.addAttribute("podate", podate);
-		model.addAttribute("pocustprice", pocustprice);
-		model.addAttribute("doneby", doneby);
-		model.addAttribute("teamleadid", teamleadid);
-		model.addAttribute("assignedtotech", assignedtotech);
 		if(user.getAuthority().equals(MainService.ROLE_COORDINATOR)) {
 			model.addAttribute("coordinatorId", user.getUserId());
 		}
-		System.out.println("Job data"+job);
 		return "job";
 	}
 	
@@ -429,16 +376,6 @@ public class WebController {
 		}
 		if(job.getJobId() == null){
 		  long flag = mainService.addJob(job,userInfo.getUserId());
-		//  System.out.println("Job details Web Controller"+job);
-		   if(job.getDoneby().equals("0"))
-		   {
-			   System.out.println("Job details Web Controller - PYRO");
-		   }
-		   else if(job.getDoneby().equals("1"))
-		   {
-			   System.out.println("Job details Web Controller - VENDOR");			   
-		   }
-		   
 			if (flag > 0) {
 				redirectAttributes.addFlashAttribute("successMessage", "Job added successfully.");
 			} else {
@@ -482,17 +419,8 @@ public class WebController {
 	@RequestMapping(value = "/coordinator/vendors", method = RequestMethod.POST, consumes = "application/json", produces = "application/json")
 	public @ResponseBody List<Vendor> getVendors(Model model,
 			@RequestBody long coordinatorIdVal) {
-		System.out.println("/coordinator/vendors");
 		List<Vendor> vendors = mainService.getUserVendors(coordinatorIdVal);
 		return vendors;
-	}
-	
-	@RequestMapping(value = "/coordinator/vendorName", method = RequestMethod.POST, consumes = "application/json", produces = "application/json")
-	public @ResponseBody List<VendorName> getVendorName(Model model,
-			@RequestBody long coordinatorIdVal) {
-		System.out.println("/coordinator/vendorName");
-		List<VendorName> vendorName = mainService.getUserVendorsName(coordinatorIdVal);
-		return vendorName;
 	}
 	
 	@RequestMapping(value = "/coordinator/customers", method = RequestMethod.POST, consumes = "application/json", produces = "application/json")
@@ -759,7 +687,192 @@ public class WebController {
 	  
 	    return "redirect:/web/user/management?page=" + page+"&search="+search;
 	}
-	
+	@RequestMapping(value = "/docs", method = RequestMethod.GET)
+	public String docs(
+			Model model, 
+			@RequestParam(value = "search", required = false, defaultValue = "") String search,
+			@RequestParam(value = "page", required = false, defaultValue = "1") int page,
+			@RequestParam(value = "pageSize", required = false, defaultValue = "-1") int pageSize,HttpServletResponse response) throws IOException, SQLException {
+		if (pageSize < 0) {
+			pageSize = constants.getPageSize();
+		}
+		
+		 int index=0;
+		 if(page>0){
+		  index=(page-1)*pageSize;
+		 }
+
+		model.addAttribute("indexNo",index);
+		List<Doc> docs = mainService.getAllDocs(search,page,pageSize);
+		
+		model.addAttribute("docs", docs);
+		setPagination(model, docs, page);
+		model.addAttribute("page", page);
+		model.addAttribute("search", search);
+		return "docs";
+	}
+	@RequestMapping(value = "/new/doc", method = RequestMethod.GET)
+	public String addDoc(Model model) throws Exception {
+		Doc doc = new Doc();
+		//Doc doc = new Doc();
+		List<User> engineers = mainService.getEngineers("");
+		model.addAttribute("doc", doc);
+		model.addAttribute("engineers", engineers);
+		model.addAttribute("mode", "New");
+		model.addAttribute("page", 1);
+		return "doc";
+	}
+	@RequestMapping(value = "/doc/save/{page}", method = RequestMethod.POST)
+	public String saveDoc(
+		@ModelAttribute("doc") Doc doc,
+		@PathVariable("page") int page,
+		@RequestParam(value = "search", required = false, defaultValue = "") String search,
+		@RequestParam("fileItem1") CommonsMultipartFile fileItem1,
+		@RequestParam("fileItem2") CommonsMultipartFile fileItem2,
+		@RequestParam("fileItem3") CommonsMultipartFile fileItem3,
+		final RedirectAttributes redirectAttributes,BindingResult result,Model model) throws Exception {
+		UserInfo userInfo = SecurityUtil.getCurrentUserInfo();
+		User user = mainService.getUserByUserId(userInfo.getUserId());
+		
+		
+		  if(fileItem1 == null || fileItem1.getSize() <= 0 || fileItem3 == null ||
+		  fileItem3.getSize() <= 0 || fileItem3 == null || fileItem3.getSize() <= 0) {
+		  redirectAttributes.addFlashAttribute("message",
+		  "Please Select File To Upload"); return "redirect:/web/new/doc"; }
+		 
+		
+		String fullPath1 = mainService.uploadDoc(fileItem1,1);
+		String fullPath2 = mainService.uploadDoc(fileItem2,2);
+		String fullPath3 = mainService.uploadDoc(fileItem3,3);
+		doc.setfarmCert(fullPath1);
+		doc.setfirstaidCert(fullPath2);
+		doc.setmedicalCert(fullPath3);
+		
+		if(doc.getorgType().equalsIgnoreCase("PYRO")) {
+			doc.setorgName("PYRO");
+			User empdata = mainService.getUserByUserId(doc.getempId());
+			doc.setempName(empdata.getName());
+		}else {
+			doc.setempId(doc.getempId2()); 
+		}
+		
+		docValidator.validate(doc, result);
+		if (result.hasErrors()) {
+			System.out.println("result"+result.toString());
+			if(doc.getId() == null)
+			{
+				model.addAttribute("mode","New");
+				
+			}
+			else
+			{
+				model.addAttribute("mode","Edit");
+			}
+			return "doc";
+		}
+		if(doc.getId() == null){
+			
+		doc.setinsertBy(user.getUserId());
+		doc.setinsertUser(user.getName());
+		doc.setstatus("INITIATED");
+		//System.out.println("Data In addition"+doc.toString());
+			
+		//System.out.println("ServiceID"+userInfo.getServiceId());
+		  long flag = mainService.addDoc(doc);
+			if (flag > 0) {
+				redirectAttributes.addFlashAttribute("successMessage", "Documents added successfully.");
+			} else {
+				redirectAttributes.addFlashAttribute("errorMessage", "Sorry!! please try again.");
+			}
+		  }else{
+			/*
+			 * long flag = mainService.updateSite(doc); if (flag > 0) {
+			 * redirectAttributes.addFlashAttribute("successMessage",
+			 * "Documents updated successfully."); } else {
+			 * redirectAttributes.addFlashAttribute("errorMessage",
+			 * "Sorry!! please try again."); }
+			 */
+		}
+		return "redirect:/web/docs?page=" + page+"&search="+search;
+	}	
+	@RequestMapping(value = "/doc/{docId}/edit/{page}", method = RequestMethod.GET)
+	public String editDoc(
+		@PathVariable("docId") Long docId,
+		@PathVariable("page") int page,
+		@RequestParam(value = "search", required = false, defaultValue = "") String search,
+		Model model) throws Exception {
+		
+		Doc doc = mainService.getDocById(docId);
+		System.out.println("Data in edit----"+doc.toString());
+		/* List<MetaCircle> circles = mainService.getAllCircles(); */
+		model.addAttribute("doc", doc);
+		/* model.addAttribute("circles", circles); */
+		model.addAttribute("mode", "Edit");
+		model.addAttribute("page", page);
+		model.addAttribute("search", search);
+		
+		return "doc_edit";
+	}
+	@RequestMapping(value = "/doc/reject/{Id}/{page}", method = RequestMethod.GET)
+	public String rejectDoc(
+		@PathVariable("Id") Long Id,
+		@PathVariable("page") int page,
+		@RequestParam(value = "search", required = false, defaultValue = "") String search,
+		final RedirectAttributes redirectAttributes,
+		Model model) throws Exception {
+		UserInfo userInfo = SecurityUtil.getCurrentUserInfo();
+		User user = mainService.getUserByUserId(userInfo.getUserId());
+		int flag=mainService.rejectDoc(Id,user.getUserId(),user.getName());
+		if(flag>0)
+		{
+			redirectAttributes.addFlashAttribute("successMessage", "Documents Rejected.");
+		}
+		else
+		{
+			redirectAttributes.addFlashAttribute("errorMessage", "Sorry!! please try again.");
+		}
+		return "redirect:/web/docs?page=" + page+"&search="+search;
+	}
+	@RequestMapping(value = "/doc/approve/{Id}/{page}", method = RequestMethod.GET)
+	public String approveDoc(
+		@PathVariable("Id") Long Id,
+		@PathVariable("page") int page,
+		@RequestParam(value = "search", required = false, defaultValue = "") String search,
+		final RedirectAttributes redirectAttributes,
+		Model model) throws Exception {
+		UserInfo userInfo = SecurityUtil.getCurrentUserInfo();
+		User user = mainService.getUserByUserId(userInfo.getUserId());
+		int flag=mainService.approveDoc(Id,user.getUserId(),user.getName());
+		if(flag>0)
+		{
+			redirectAttributes.addFlashAttribute("successMessage", "Documents Approved.");
+		}
+		else
+		{
+			redirectAttributes.addFlashAttribute("errorMessage", "Sorry!! please try again.");
+		}
+		return "redirect:/web/docs?page=" + page+"&search="+search;
+	}
+	@RequestMapping(value = "/delete/doc/{Id}/{page}", method = RequestMethod.GET)
+	public String deleteDoc(
+		@PathVariable("Id") Long Id,
+		@PathVariable("page") int page,
+		@RequestParam(value = "search", required = false, defaultValue = "") String search,
+		final RedirectAttributes redirectAttributes,
+		Model model) throws Exception {
+		UserInfo userInfo = SecurityUtil.getCurrentUserInfo();
+		User user = mainService.getUserByUserId(userInfo.getUserId());
+		int flag=mainService.deleteDoc(Id,user.getUserId(),user.getName());
+		if(flag>0)
+		{
+			redirectAttributes.addFlashAttribute("successMessage", "Documents deleted successfully.");
+		}
+		else
+		{
+			redirectAttributes.addFlashAttribute("errorMessage", "Sorry!! please try again.");
+		}
+		return "redirect:/web/docs?page=" + page+"&search="+search;
+	}
 	@RequestMapping(value = "/sites", method = RequestMethod.GET)
 	public String sites(
 			Model model, 
@@ -978,43 +1091,7 @@ public class WebController {
 			
 			return null;
     }
-/*
-	@RequestMapping(value = "/jobs1", method = RequestMethod.GET)
-	public String jobs1(
-			Model model, @RequestParam(value = "activityTypeId", required = false, defaultValue = "") Long activityTypeId,
-			@RequestParam(value = "statusId", required = false, defaultValue = "") Integer statusId,
-			@RequestParam(value = "search", required = false, defaultValue = "") String search,
-			@RequestParam(value = "startDate", required = false, defaultValue = "") String startDate,
-			@RequestParam(value = "endDate", required = false, defaultValue = "") String endDate,
-			@RequestParam(value = "page", required = false, defaultValue = "1") int page,
-			@RequestParam(value = "pageSize", required = false, defaultValue = "-1") int pageSize,HttpServletResponse response) throws IOException, SQLException {
-			
-		if (pageSize < 0) {
-			pageSize = constants.getPageSize();
-		}
-		
-		 int index=0;
-		 if(page>0){
-		  index=(page-1)*pageSize;
-		 }
-
-		model.addAttribute("indexNo",index);
-		UserInfo userInfo = SecurityUtil.getCurrentUserInfo();
-		User user = mainService.getUserByUserId(userInfo.getUserId());
-		List<JobResponse> jobs = mainService.getAllJobs(activityTypeId,statusId,user,search,startDate,endDate,page,pageSize);
-		List<MetaActivity> activityTypes = mainService.getAllActivityTypes();
-		model.addAttribute("jobs", jobs);
-		model.addAttribute("activityTypes", activityTypes);
-		setPagination(model, jobs, page);
-		model.addAttribute("page", page);
-		model.addAttribute("search", search);
-		model.addAttribute("activityTypeId", activityTypeId);
-		model.addAttribute("statusId", statusId);
-		model.addAttribute("startDate", startDate);
-		model.addAttribute("endDate", endDate);
-		return "jobs";
-	}
-	*/
+	
 	private void setPagination(Model model, Collection<?> collection, int page) {
 		setPagination(model, collection, page, null);
 	}
